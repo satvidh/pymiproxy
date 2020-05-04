@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 
-from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
-from urlparse import urlparse, urlunparse, ParseResult
-from SocketServer import ThreadingMixIn
-from httplib import HTTPResponse
+from http.server import HTTPServer, BaseHTTPRequestHandler
+from urllib.parse import urlparse, urlunparse, ParseResult
+from socketserver import ThreadingMixIn
+from http.client import HTTPResponse
 from tempfile import gettempdir
 from os import path, listdir
 from ssl import wrap_socket
@@ -11,7 +11,8 @@ from socket import socket
 from re import compile
 from sys import argv
 
-from OpenSSL.crypto import (X509Extension, X509, dump_privatekey, dump_certificate, load_certificate, load_privatekey,
+from OpenSSL.crypto import (X509Extension, X509, dump_privatekey, 
+                            dump_certificate, load_certificate, load_privatekey,
                             PKey, TYPE_RSA, X509Req)
 from OpenSSL.SSL import FILETYPE_PEM
 
@@ -49,7 +50,7 @@ class CertificateAuthority(object):
 
     def _get_serial(self):
         s = 1
-        for c in filter(lambda x: x.startswith('.pymp_'), listdir(self.cache_dir)):
+        for c in [x for x in listdir(self.cache_dir) if x.startswith('.pymp_')]:
             c = load_certificate(FILETYPE_PEM, open(path.sep.join([self.cache_dir, c])).read())
             sc = c.get_serial_number()
             if sc > s:
@@ -72,9 +73,9 @@ class CertificateAuthority(object):
         self.cert.set_issuer(self.cert.get_subject())
         self.cert.set_pubkey(self.key)
         self.cert.add_extensions([
-            X509Extension("basicConstraints", True, "CA:TRUE, pathlen:0"),
-            X509Extension("keyUsage", True, "keyCertSign, cRLSign"),
-            X509Extension("subjectKeyIdentifier", False, "hash", subject=self.cert),
+            X509Extension(b"basicConstraints", True, b"CA:TRUE, pathlen:0"),
+            X509Extension(b"keyUsage", True, b"keyCertSign, cRLSign"),
+            X509Extension(b"subjectKeyIdentifier", False, b"hash", subject=self.cert),
             ])
         self.cert.sign(self.key, "sha1")
 
@@ -179,7 +180,7 @@ class ProxyHandler(BaseHTTPRequestHandler):
             self.end_headers()
             #self.request.sendall('%s 200 Connection established\r\n\r\n' % self.request_version)
             self._transition_to_ssl()
-        except Exception, e:
+        except Exception as e:
             self.send_error(500, str(e))
             return
 
@@ -196,7 +197,7 @@ class ProxyHandler(BaseHTTPRequestHandler):
             try:
                 # Connect to destination
                 self._connect_to_host()
-            except Exception, e:
+            except Exception as e:
                 self.send_error(500, str(e))
                 return
             # Extract path
@@ -295,22 +296,22 @@ class AsyncMitmProxy(ThreadingMixIn, MitmProxy):
 class MitmProxyHandler(ProxyHandler):
 
     def mitm_request(self, data):
-        print '>> %s' % repr(data[:100])
+        print('>> %s' % repr(data[:100]))
         return data
 
     def mitm_response(self, data):
-        print '<< %s' % repr(data[:100])
+        print('<< %s' % repr(data[:100]))
         return data
 
 
 class DebugInterceptor(RequestInterceptorPlugin, ResponseInterceptorPlugin):
 
         def do_request(self, data):
-            print '>> %s' % repr(data[:100])
+            print('>> %s' % repr(data[:100]))
             return data
 
         def do_response(self, data):
-            print '<< %s' % repr(data[:100])
+            print('<< %s' % repr(data[:100]))
             return data
 
 
